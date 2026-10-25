@@ -1,103 +1,67 @@
-// Configuração da API do Backend no Render
-const BACKEND_URL = 'https://offbeat-backend-22xy.onrender.com';
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OffBeat - Music Player</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #121212; color: #ffffff; font-family: sans-serif; margin: 0; }
+        .bg-brand-dark { background-color: #121212; }
+        .bg-brand-card { background-color: #181818; }
+        .bg-brand-card:hover { background-color: #282828; }
+        .text-brand-green { color: #1db954; }
+        .bg-brand-green { background-color: #1db954; }
+        .text-brand-textMuted { color: #a7a7a7; }
+        .bg-brand-subtle { background-color: #2a2a2a; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between">
 
-document.addEventListener("DOMContentLoaded", () => {
-    const searchInput = document.getElementById('searchInput') || document.querySelector('input[type="text"]');
-    const cardsGrid = document.getElementById('cardsGrid') || document.querySelector('.artists-grid') || document.querySelector('.albums-grid');
+    <!-- CABEÇALHO COM A BARRA DE PESQUISA -->
+    <header class="p-4 bg-black/80 backdrop-blur-md sticky top-0 z-50 border-b border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-2">
+            <div class="w-8 h-8 bg-brand-green rounded-full flex items-center justify-center font-bold text-black">
+                🎵
+            </div>
+            <h1 class="text-xl font-bold tracking-wider text-brand-green">OffBeat</h1>
+        </div>
 
-    let debounceTimer = null;
+        <!-- Campo de Pesquisa -->
+        <div class="w-full md:w-1/2 relative">
+            <input type="text" id="searchInput" placeholder="Pesquisar músicas, artistas ou álbuns..." 
+                class="w-full bg-brand-card text-white placeholder-brand-textMuted px-4 py-2.5 rounded-full border border-white/10 focus:outline-none focus:border-brand-green text-sm shadow-inner transition-colors">
+        </div>
+    </header>
 
-    // Função para buscar músicas exclusivamente no seu Backend do Render
-    async function fetchMusic(term) {
-        const query = term ? term.trim() : 'Henrique e Juliano';
+    <!-- ÁREA PRINCIPAL COM A GRELHA DE MÚSICAS -->
+    <main class="p-6 max-w-7xl mx-auto w-full flex-1">
+        <h2 id="sectionTitle" class="text-lg font-bold mb-4 text-white">Músicas Recomendadas</h2>
+        
+        <!-- Grid de Cards de Músicas -->
+        <div id="cardsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+            <p class="text-brand-textMuted text-xs col-span-full">Carregando músicas do servidor...</p>
+        </div>
+    </main>
 
-        try {
-            const response = await fetch(`${BACKEND_URL}/api/search?q=${encodeURIComponent(query)}`);
-            const tracks = await response.json();
+    <!-- PLAYER FIXO NO RODAPÉ -->
+    <footer class="sticky bottom-0 bg-black/95 border-t border-white/10 p-3 flex flex-col sm:flex-row items-center justify-between gap-3 backdrop-blur-lg z-50">
+        <div class="flex items-center gap-3 w-full sm:w-1/3">
+            <img id="playerCover" src="https://via.placeholder.com/60/181818/1db954?text=OffBeat" class="w-12 h-12 rounded object-cover border border-white/10" alt="Capa">
+            <div class="truncate">
+                <p id="playerTitle" class="text-xs font-bold text-white truncate">Selecione uma música</p>
+                <p id="playerArtist" class="text-[11px] text-brand-textMuted truncate">OffBeat Player</p>
+            </div>
+        </div>
 
-            if (Array.isArray(tracks) && tracks.length > 0) {
-                renderMusicGrid(tracks);
-            } else {
-                if (cardsGrid) cardsGrid.innerHTML = `<p class="text-white text-xs p-4">Nenhuma música encontrada para "${query}".</p>`;
-            }
-        } catch (err) {
-            console.error("Erro ao conectar ao backend no Render:", err);
-            if (cardsGrid) cardsGrid.innerHTML = `<p class="text-red-400 text-xs p-4">Erro de conexão com o servidor.</p>`;
-        }
-    }
+        <!-- Elemento de Áudio Nativo do Navegador -->
+        <div class="w-full sm:w-1/2 flex justify-center">
+            <audio id="audioElement" controls class="w-full max-w-md h-9 rounded-lg opacity-90"></audio>
+        </div>
+    </footer>
 
-    // Renderiza os resultados no grid principal do HTML
-    function renderMusicGrid(tracks) {
-        if (!cardsGrid) return;
-        cardsGrid.innerHTML = '';
-
-        tracks.forEach(track => {
-            const trackName = track.title || 'Música';
-            const artistName = track.artist || 'Artista';
-            const coverUrl = track.cover || './IMG/default.jpg';
-            const trackId = track.id;
-
-            const card = document.createElement('div');
-            card.className = "bg-brand-card hover:bg-brand-cardHover p-3 rounded-xl cursor-pointer group transition-all duration-300 flex flex-col gap-2 border border-white/5 shadow-lg relative";
-
-            card.innerHTML = `
-                <div class="relative w-full aspect-square rounded-lg overflow-hidden shadow-md">
-                    <img src="${coverUrl}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="Capa">
-                    <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                        <div class="w-10 h-10 bg-brand-green rounded-full flex items-center justify-center shadow-lg text-black font-bold">
-                            ▶
-                        </div>
-                    </div>
-                </div>
-                <div class="truncate mt-1">
-                    <h4 class="font-bold text-xs text-white truncate">${trackName}</h4>
-                    <p class="text-[11px] text-brand-textMuted truncate mt-0.5">${artistName}</p>
-                </div>
-                <a href="${BACKEND_URL}/api/download?id=${trackId}" target="_blank" onclick="event.stopPropagation()" title="Baixar MP3" class="mt-2 text-center bg-brand-subtle hover:bg-white/10 text-brand-green border border-brand-green/30 text-[10px] py-1 px-2 rounded-full font-semibold transition-colors">
-                    ⬇ Baixar MP3
-                </a>
-            `;
-
-            // Clique para carregar o stream de áudio do YouTube via Render
-            card.onclick = () => loadAndPlayStream(trackId, title = trackName, artistName, coverUrl);
-            cardsGrid.appendChild(card);
-        });
-    }
-
-    // Requisição para reproduzir o áudio completo
-    async function loadAndPlayStream(id, title, artist, cover) {
-        const audioElement = document.getElementById('audioElement') || document.querySelector('audio');
-
-        try {
-            const res = await fetch(`${BACKEND_URL}/api/stream?id=${id}`);
-            const data = await res.json();
-
-            if (data.streamUrl && audioElement) {
-                audioElement.pause();
-                audioElement.src = data.streamUrl;
-                audioElement.currentTime = 0;
-                audioElement.load();
-                audioElement.play().catch(err => console.warn("Autoplay bloqueado pelo browser:", err));
-            } else {
-                alert("Não foi possível carregar o fluxo de áudio.");
-            }
-        } catch (e) {
-            console.error("Erro ao invocar stream:", e);
-        }
-    }
-
-    // Escuta a digitação na barra de pesquisa
-    if (searchInput) {
-        searchInput.addEventListener('input', (e) => {
-            clearTimeout(debounceTimer);
-            const val = e.target.value;
-            if (!val.trim()) return;
-            debounceTimer = setTimeout(() => {
-                fetchMusic(val);
-            }, 500);
-        });
-    }
-
-    // Executa a busca inicial ao abrir a página
-    fetchMusic('Henrique e Juliano');
-});
+    <!-- SCRIPT DE CONEXÃO -->
+    <script src="script.js"></script>
+</body>
+</html>
