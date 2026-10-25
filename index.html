@@ -3,65 +3,829 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>OffBeat - Music Player</title>
+    <title>off music clube - Player de Música</title>
+    <!-- Google Fonts: Poppins -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- SDK do Supabase v2 -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            green: '#1db954',
+                            purple: '#8b5cf6',
+                            cyan: '#06b6d4',
+                            dark: '#121212',
+                            card: '#282828',
+                            cardHover: '#3e3e3e',
+                            subtle: '#181818',
+                            textMuted: '#b3b3b3'
+                        }
+                    },
+                    fontFamily: { sans: ['Poppins', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
     <style>
-        body { background-color: #121212; color: #ffffff; font-family: sans-serif; margin: 0; }
-        .bg-brand-dark { background-color: #121212; }
-        .bg-brand-card { background-color: #181818; }
-        .bg-brand-card:hover { background-color: #282828; }
-        .text-brand-green { color: #1db954; }
-        .bg-brand-green { background-color: #1db954; }
-        .text-brand-textMuted { color: #a7a7a7; }
-        .bg-brand-subtle { background-color: #2a2a2a; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #121212; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #555; }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        @keyframes pulse-subtle {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.4; }
+        }
+        .animate-pulse-subtle { animation: pulse-subtle 1.8s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     </style>
 </head>
-<body class="min-h-screen flex flex-col justify-between">
+<body class="bg-black text-white font-sans antialiased select-none h-screen flex flex-col overflow-hidden">
 
-    <!-- CABEÇALHO COM A BARRA DE PESQUISA -->
-    <header class="p-4 bg-black/80 backdrop-blur-md sticky top-0 z-50 border-b border-white/10 flex flex-col md:flex-row items-center justify-between gap-4">
-        <div class="flex items-center gap-2">
-            <div class="w-8 h-8 bg-brand-green rounded-full flex items-center justify-center font-bold text-black">
-                🎵
-            </div>
-            <h1 class="text-xl font-bold tracking-wider text-brand-green">OffBeat</h1>
-        </div>
+    <!-- TOAST / MENSAGENS FLUTUANTES DE STATUS -->
+    <div id="toastContainer" class="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
 
-        <!-- Campo de Pesquisa -->
-        <div class="w-full md:w-1/2 relative">
-            <input type="text" id="searchInput" placeholder="Pesquisar músicas, artistas ou álbuns..." 
-                class="w-full bg-brand-card text-white placeholder-brand-textMuted px-4 py-2.5 rounded-full border border-white/10 focus:outline-none focus:border-brand-green text-sm shadow-inner transition-colors">
-        </div>
-    </header>
-
-    <!-- ÁREA PRINCIPAL COM A GRELHA DE MÚSICAS -->
-    <main class="p-6 max-w-7xl mx-auto w-full flex-1">
-        <h2 id="sectionTitle" class="text-lg font-bold mb-4 text-white">Músicas Recomendadas</h2>
+    <!-- APP CONTAINER -->
+    <div class="flex flex-1 overflow-hidden p-2 gap-2">
         
-        <!-- Grid de Cards de Músicas -->
-        <div id="cardsGrid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-            <p class="text-brand-textMuted text-xs col-span-full">Carregando músicas do servidor...</p>
-        </div>
-    </main>
+        <!-- SIDEBAR -->
+        <aside class="hidden md:flex w-64 md:w-72 bg-brand-dark rounded-lg p-4 flex-col justify-between flex-shrink-0 overflow-y-auto border border-white/5">
+            <div class="space-y-6">
+                <!-- LOGO -->
+                <div class="flex items-center gap-3 cursor-pointer group" onclick="quickSearch('musicas em alta')">
+                    <div class="w-10 h-10 flex items-center justify-center bg-gradient-to-tr from-purple-600 via-cyan-500 to-green-400 rounded-xl p-1.5 shadow-lg group-hover:scale-105 transition-transform">
+                        <svg class="w-full h-full text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 14h3a2 2 0 0 1 2 2v3a2 2 0 0 1-2 2H3a1 1 0 0 1-1-1v-5a1 1 0 0 1 1-1z"></path><path d="M18 14h3a1 1 0 0 1 1 1v5a1 1 0 0 1-1 1h-3a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2z"></path><path d="M2 14V10a10 10 0 0 1 20 0v4"></path></svg>
+                    </div>
+                    <div>
+                        <span class="text-lg font-bold tracking-tight bg-gradient-to-r from-purple-400 via-cyan-300 to-green-400 bg-clip-text text-transparent">off music clube</span>
+                        <span class="block text-[10px] text-brand-textMuted uppercase tracking-widest font-semibold">Catálogo Ilimitado</span>
+                    </div>
+                </div>
 
-    <!-- PLAYER FIXO NO RODAPÉ -->
-    <footer class="sticky bottom-0 bg-black/95 border-t border-white/10 p-3 flex flex-col sm:flex-row items-center justify-between gap-3 backdrop-blur-lg z-50">
-        <div class="flex items-center gap-3 w-full sm:w-1/3">
-            <img id="playerCover" src="https://via.placeholder.com/60/181818/1db954?text=OffBeat" class="w-12 h-12 rounded object-cover border border-white/10" alt="Capa">
+                <!-- NAVEGAÇÃO -->
+                <nav class="space-y-1">
+                    <button onclick="quickSearch('top brasil')" class="w-full flex items-center gap-4 text-white font-semibold p-2.5 rounded-md hover:bg-brand-card transition-colors cursor-pointer text-left">
+                        <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 3l10 9h-3v8h-5v-6h-4v6H5v-8H2l10-9z"/></svg>
+                        <span class="text-sm">Início</span>
+                    </button>
+                    <button onclick="focusSearch()" class="w-full flex items-center gap-4 text-brand-textMuted hover:text-white font-medium p-2.5 rounded-md hover:bg-brand-card transition-colors cursor-pointer text-left">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                        <span class="text-sm">Buscar Músicas</span>
+                    </button>
+                    <button onclick="quickSearch('rock nacional')" class="w-full flex items-center gap-4 text-brand-textMuted hover:text-white font-medium p-2.5 rounded-md hover:bg-brand-card transition-colors cursor-pointer text-left">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-2v13"/></svg>
+                        <span class="text-sm">Rock Nacional</span>
+                    </button>
+                </nav>
+
+                <!-- BIBLIOTECA / GÊNEROS POPULARES -->
+                <div class="pt-4 border-t border-white/10 space-y-3">
+                    <h5 class="text-xs font-semibold text-brand-textMuted uppercase tracking-wider">Explore por Gênero</h5>
+                    <div class="space-y-2 text-sm text-brand-textMuted">
+                        <p onclick="quickSearch('sertanejo 2026')" class="hover:text-white cursor-pointer truncate">🤠 Sertanejo Universitário</p>
+                        <p onclick="quickSearch('funk brasil')" class="hover:text-white cursor-pointer truncate">🔥 Funk Hits</p>
+                        <p onclick="quickSearch('pop internacional')" class="hover:text-white cursor-pointer truncate">🎤 Pop Internacional</p>
+                        <p onclick="quickSearch('lofi beats')" class="hover:text-white cursor-pointer truncate">☕ Lofi & Chill</p>
+                        <p onclick="quickSearch('eletronica')" class="hover:text-white cursor-pointer truncate">🎧 Eletrônica / EDM</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- SERVER STATUS BADGE -->
+            <div class="pt-4 border-t border-white/10 flex items-center justify-between text-[11px] text-brand-textMuted">
+                <span class="flex items-center gap-1.5">
+                    <span id="serverDot" class="w-2 h-2 rounded-full bg-brand-green"></span>
+                    <span id="serverText">Render API Conectada</span>
+                </span>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <main class="flex-1 bg-brand-dark rounded-lg flex flex-col overflow-hidden relative border border-white/5">
+            
+            <!-- HEADER -->
+            <header class="p-4 bg-brand-dark/95 backdrop-blur-md sticky top-0 z-20 flex flex-col gap-3 border-b border-white/5">
+                <div class="flex items-center justify-between gap-4">
+                    
+                    <!-- USER PROFILE -->
+                    <div id="userProfile" class="hidden flex items-center gap-3">
+                        <div class="relative group cursor-pointer" onclick="document.getElementById('avatarUpload').click()" title="Clique para trocar a foto">
+                            <div id="avatarContainer" class="w-9 h-9 rounded-full bg-gradient-to-tr from-purple-600 to-cyan-400 text-white font-extrabold flex items-center justify-center text-sm shadow-md overflow-hidden border border-white/20">
+                                <span id="avatarInitial">U</span>
+                                <img id="avatarImage" class="w-full h-full object-cover hidden" alt="Perfil">
+                            </div>
+                        </div>
+                        <input type="file" id="avatarUpload" class="hidden" accept="image/*" onchange="loadCustomAvatar(event)">
+                        
+                        <div class="flex flex-col">
+                            <span id="userName" class="text-sm font-bold text-white leading-none">Usuário</span>
+                            <span class="text-[10px] text-brand-green font-semibold mt-0.5">Premium</span>
+                        </div>
+                        
+                        <button id="btnLogout" class="ml-2 text-[11px] border border-white/20 text-brand-textMuted hover:text-white px-3 py-1 rounded-full transition-colors cursor-pointer">Sair</button>
+                    </div>
+
+                    <!-- AUTH BUTTONS -->
+                    <div id="authButtons" class="flex items-center gap-3">
+                        <button id="btnOpenSignup" class="text-xs font-semibold text-brand-textMuted hover:text-white px-3 py-2 cursor-pointer">Inscrever-se</button>
+                        <button id="btnOpenLogin" class="bg-white text-black font-bold text-xs px-5 py-2.5 rounded-full hover:scale-105 transition-transform cursor-pointer">Entrar</button>
+                    </div>
+
+                    <!-- BARRA DE PESQUISA -->
+                    <div class="flex-1 max-w-md">
+                        <div class="relative">
+                            <input id="searchInput" type="text" placeholder="Pesquisar artistas, músicas, álbuns (ex: Alok, Anitta, Linkin Park)..." onkeyup="handleKeySearch(event)" oninput="handleInputChange(this.value)" class="w-full bg-brand-subtle text-white pl-9 pr-10 py-2 rounded-full text-xs border border-white/10 focus:border-brand-green focus:outline-none transition-all placeholder-brand-textMuted shadow-inner">
+                            <svg class="w-4 h-4 text-brand-textMuted absolute left-3 top-2.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                            <button id="clearSearchBtn" onclick="clearSearch()" class="hidden absolute right-3 top-2 text-brand-textMuted hover:text-white text-xs font-bold">✕</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- CATEGORIAS / TAGS -->
+                <div class="flex items-center gap-2 overflow-x-auto no-scrollbar pt-1">
+                    <button onclick="quickSearch('musicas em alta')" class="bg-brand-green text-black font-bold px-4 py-1.5 rounded-full text-xs transition-all cursor-pointer whitespace-nowrap">🔥 Em Alta</button>
+                    <button onclick="quickSearch('sertanejo 2026')" class="bg-brand-card hover:bg-brand-cardHover text-white font-medium px-4 py-1.5 rounded-full text-xs transition-all cursor-pointer whitespace-nowrap">🤠 Sertanejo</button>
+                    <button onclick="quickSearch('pop hits')" class="bg-brand-card hover:bg-brand-cardHover text-white font-medium px-4 py-1.5 rounded-full text-xs transition-all cursor-pointer whitespace-nowrap">🎤 Pop Hits</button>
+                    <button onclick="quickSearch('rock classics')" class="bg-brand-card hover:bg-brand-cardHover text-white font-medium px-4 py-1.5 rounded-full text-xs transition-all cursor-pointer whitespace-nowrap">🎸 Rock Classics</button>
+                    <button onclick="quickSearch('eletronica')" class="bg-brand-card hover:bg-brand-cardHover text-white font-medium px-4 py-1.5 rounded-full text-xs transition-all cursor-pointer whitespace-nowrap">⚡ Eletrônica</button>
+                    <button onclick="quickSearch('rap hiphop')" class="bg-brand-card hover:bg-brand-cardHover text-white font-medium px-4 py-1.5 rounded-full text-xs transition-all cursor-pointer whitespace-nowrap">🎧 Rap & Trap</button>
+                    <button onclick="quickSearch('lofi study')" class="bg-brand-card hover:bg-brand-cardHover text-white font-medium px-4 py-1.5 rounded-full text-xs transition-all cursor-pointer whitespace-nowrap">☕ Lofi Study</button>
+                </div>
+            </header>
+
+            <!-- CONTEÚDO PRINCIPAL -->
+            <div class="flex-1 overflow-y-auto p-4 md:p-6 space-y-8 pb-32">
+                <section>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-3">
+                            <h2 id="sectionTitle" class="text-lg font-bold text-white">Resultados</h2>
+                            <span id="searchSourceBadge" class="hidden text-[10px] bg-brand-card border border-white/10 px-2.5 py-0.5 rounded-full text-brand-textMuted font-mono">Render API</span>
+                        </div>
+                        <span id="searchStatus" class="text-xs text-brand-green font-semibold hidden flex items-center gap-2">
+                            <svg class="animate-spin h-3.5 w-3.5 text-brand-green" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                            Buscando faixas...
+                        </span>
+                    </div>
+
+                    <!-- GRID DE CARDS -->
+                    <div id="cardsGrid" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4"></div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- PLAYER DE ÁUDIO RODAPÉ -->
+    <footer class="fixed bottom-0 left-0 right-0 h-24 bg-neutral-900/95 backdrop-blur-xl border-t border-white/10 px-4 flex items-center justify-between z-30 shadow-2xl">
+        
+        <!-- FAIXA ATUAL -->
+        <div class="flex items-center gap-3 w-1/3 min-w-[180px]">
+            <div class="relative w-14 h-14 flex-shrink-0">
+                <img id="playerCover" class="w-14 h-14 bg-neutral-800 rounded-md object-cover border border-white/10 shadow-md" src="https://placehold.co/150x150/181818/1db954?text=off" alt="Capa da música">
+                <div id="playerLoadingSpinner" class="hidden absolute inset-0 bg-black/60 rounded-md flex items-center justify-center">
+                    <svg class="animate-spin h-5 w-5 text-brand-green" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
+                </div>
+            </div>
             <div class="truncate">
-                <p id="playerTitle" class="text-xs font-bold text-white truncate">Selecione uma música</p>
-                <p id="playerArtist" class="text-[11px] text-brand-textMuted truncate">OffBeat Player</p>
+                <h4 id="playerTitle" class="text-xs md:text-sm font-bold truncate text-white">Selecione uma faixa</h4>
+                <p id="playerArtist" class="text-[11px] text-brand-textMuted truncate">off music clube</p>
+                <span id="streamTypeBadge" class="inline-block text-[9px] text-brand-green font-mono uppercase tracking-wider mt-0.5">Aguardando</span>
             </div>
         </div>
 
-        <!-- Elemento de Áudio Nativo do Navegador -->
-        <div class="w-full sm:w-1/2 flex justify-center">
-            <audio id="audioElement" controls class="w-full max-w-md h-9 rounded-lg opacity-90"></audio>
+        <!-- CONTROLES DO PLAYER -->
+        <div class="flex flex-col items-center gap-1.5 w-1/3 max-w-md">
+            <div class="flex items-center gap-4">
+                <button id="playPauseBtn" class="w-10 h-10 rounded-full bg-white text-black flex items-center justify-center hover:scale-105 active:scale-95 transition-transform shadow-md cursor-pointer disabled:opacity-50" title="Play / Pause (Barra de Espaço)">
+                    <svg id="playIcon" class="w-5 h-5 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    <svg id="pauseIcon" class="w-5 h-5 hidden" fill="currentColor" viewBox="0 0 24 24"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+                </button>
+            </div>
+
+            <div class="w-full flex items-center gap-2 text-[10px] text-brand-textMuted font-mono">
+                <span id="currentTime">0:00</span>
+                <input id="progressBar" type="range" value="0" max="100" class="w-full h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-brand-green">
+                <span id="totalTime">0:00</span>
+            </div>
+        </div>
+
+        <!-- BOTÃO DE DOWNLOAD DIRETO E VOLUME -->
+        <div class="hidden md:flex items-center justify-end gap-4 w-1/4">
+            <button id="playerDownloadBtn" disabled onclick="downloadCurrentTrack()" class="hidden opacity-50 cursor-not-allowed bg-brand-card hover:bg-brand-cardHover border border-brand-green/40 text-brand-green px-3 py-1.5 rounded-full text-xs font-semibold flex items-center gap-1.5 transition-all">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                <span>Baixar MP3</span>
+            </button>
+
+            <div class="flex items-center gap-2">
+                <svg id="volumeIcon" class="w-4 h-4 text-brand-textMuted cursor-pointer" onclick="toggleMute()" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 5L6 9H2v6h4l5 4V5zM15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+                <input id="volumeBar" type="range" value="80" max="100" class="w-20 h-1 bg-neutral-700 rounded-lg appearance-none cursor-pointer accent-brand-green">
+            </div>
         </div>
     </footer>
 
-    <!-- SCRIPT DE CONEXÃO -->
-    <script src="script.js"></script>
+    <!-- MODAL DE AUTENTICAÇÃO -->
+    <div id="authModal" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-brand-dark border border-white/10 rounded-2xl w-full max-w-md p-6 space-y-6 relative shadow-2xl">
+            <button id="closeAuthModal" class="absolute top-4 right-4 text-brand-textMuted hover:text-white text-lg font-bold cursor-pointer">✕</button>
+
+            <div class="text-center space-y-1">
+                <h3 id="modalTitle" class="text-xl font-bold">Entrar</h3>
+                <p id="modalSubtitle" class="text-xs text-brand-textMuted">Insira seus dados abaixo</p>
+            </div>
+
+            <form id="authForm" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-brand-textMuted mb-1">E-mail</label>
+                    <input id="authEmail" type="email" required placeholder="seu@email.com" class="w-full bg-brand-subtle text-white px-4 py-2.5 rounded-lg text-sm border border-white/10 focus:border-brand-green focus:outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-brand-textMuted mb-1">Senha</label>
+                    <input id="authPassword" type="password" required placeholder="••••••••" class="w-full bg-brand-subtle text-white px-4 py-2.5 rounded-lg text-sm border border-white/10 focus:border-brand-green focus:outline-none">
+                </div>
+                <button id="authSubmitBtn" type="submit" class="w-full bg-brand-green text-black font-bold py-3 rounded-full hover:scale-105 transition-transform cursor-pointer text-sm">Entrar</button>
+            </form>
+
+            <div class="text-center text-xs text-brand-textMuted">
+                <span id="toggleAuthText">Não tem conta?</span>
+                <button id="toggleAuthMode" type="button" class="text-brand-green font-semibold hover:underline ml-1 cursor-pointer">Cadastre-se</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ELEMENTO DE ÁUDIO PRINCIPAL -->
+    <audio id="audioElement" crossorigin="anonymous" preload="auto"></audio>
+
+    <script>
+        // --- CONFIGURAÇÃO DE BACKEND E FALLBACKS ---
+        const PRIMARY_BACKEND = 'https://offbeat-backend-22xy.onrender.com';
+        const JAMENDO_CLIENT_ID = '5c3789f4'; // Backup API para tolerância a falhas
+        
+        let isRenderBackendHealthy = true;
+        let activeTrackInfo = null;
+
+        // --- CONEXÃO SUPABASE ---
+        const SUPABASE_URL = 'https://ruxsvpmdlfgunonpdekw.supabase.co';
+        const SUPABASE_ANON_KEY = 'sb_publishable_ccxE2CS18GIb5gacv_M_ew_9J9UZy6_';
+        let supabaseClient = null;
+        try {
+            if (typeof supabase !== 'undefined') {
+                supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+            }
+        } catch (e) {
+            console.warn("Supabase SDK indisponível:", e);
+        }
+
+        // --- ELEMENTOS DO DOM ---
+        const audio = document.getElementById('audioElement');
+        const playPauseBtn = document.getElementById('playPauseBtn');
+        const playIcon = document.getElementById('playIcon');
+        const pauseIcon = document.getElementById('pauseIcon');
+        const progressBar = document.getElementById('progressBar');
+        const currentTimeEl = document.getElementById('currentTime');
+        const totalTimeEl = document.getElementById('totalTime');
+        const volumeBar = document.getElementById('volumeBar');
+        const playerDownloadBtn = document.getElementById('playerDownloadBtn');
+        const streamTypeBadge = document.getElementById('streamTypeBadge');
+        const playerLoadingSpinner = document.getElementById('playerLoadingSpinner');
+
+        let debounceTimer = null;
+        let lastVolume = 0.8;
+
+        // --- SISTEMA DE TOAST / NOTIFICAÇÕES VISUAIS ---
+        function showToast(message, type = 'info') {
+            const container = document.getElementById('toastContainer');
+            const toast = document.createElement('div');
+            
+            const bgClass = type === 'error' ? 'bg-red-900/90 border-red-500' : 
+                            type === 'success' ? 'bg-green-900/90 border-brand-green' : 
+                            'bg-neutral-800/90 border-purple-500';
+
+            toast.className = `${bgClass} border text-white text-xs px-4 py-3 rounded-xl shadow-2xl backdrop-blur-md flex items-center gap-2 transform transition-all duration-300 translate-y-2 opacity-0 pointer-events-auto max-w-sm`;
+            
+            toast.innerHTML = `
+                <span class="font-semibold">${message}</span>
+            `;
+
+            container.appendChild(toast);
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-2', 'opacity-0');
+            }, 10);
+
+            setTimeout(() => {
+                toast.classList.add('opacity-0', 'translate-y-2');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+
+        // --- FUNÇÃO PRINCIPAL DE BUSCA COM FALLBACK AUTOMÁTICO ---
+        async function fetchMusic(term) {
+            const query = term ? term.trim() : 'musicas em alta';
+            const statusEl = document.getElementById('searchStatus');
+            const sourceBadge = document.getElementById('searchSourceBadge');
+            
+            statusEl.classList.remove('hidden');
+            renderSkeletonGrid();
+
+            // TENTATIVA 1: Backend no Render (catálogo completo de todos os artistas)
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 12000); // 12s timeout para cold start no Render
+
+                const response = await fetch(`${PRIMARY_BACKEND}/api/search?q=${encodeURIComponent(query)}`, {
+                    signal: controller.signal
+                });
+                clearTimeout(timeoutId);
+
+                if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
+                
+                const tracks = await response.json();
+                
+                if (Array.isArray(tracks) && tracks.length > 0) {
+                    isRenderBackendHealthy = true;
+                    updateServerStatus(true, 'Render API Ativa');
+                    sourceBadge.textContent = 'Render API';
+                    sourceBadge.classList.remove('hidden');
+                    statusEl.classList.add('hidden');
+                    document.getElementById('sectionTitle').textContent = `Resultados para: "${query}"`;
+                    renderMusicGrid(tracks, 'render');
+                    return;
+                }
+            } catch (err) {
+                console.warn("Falha no servidor Render principal. Alternando para modo Fallback Jamendo:", err);
+                isRenderBackendHealthy = false;
+                updateServerStatus(false, 'Modo Fallback Ativo');
+            }
+
+            // TENTATIVA 2: Fallback direto no Jamendo (Músicas independentes seguras)
+            try {
+                sourceBadge.textContent = 'Fallback Jamendo';
+                sourceBadge.classList.remove('hidden');
+                
+                const jamendoUrl = `https://api.jamendo.com/v1/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=20&namesearch=${encodeURIComponent(query)}&audioformat=mp31`;
+                const response = await fetch(jamendoUrl);
+                const data = await response.json();
+
+                statusEl.classList.add('hidden');
+                document.getElementById('sectionTitle').textContent = `Resultados para: "${query}" (Modo Backup)`;
+
+                if (data && data.results && data.results.length > 0) {
+                    const mappedTracks = data.results.map(item => ({
+                        id: item.id,
+                        title: item.name,
+                        artist: item.artist_name,
+                        cover: item.image || 'https://placehold.co/300x300/181818/1db954?text=Music',
+                        directAudio: item.audio
+                    }));
+                    renderMusicGrid(mappedTracks, 'jamendo');
+                    showToast('Servidor Render demorando para responder. Exibindo resultados do backup.', 'info');
+                } else {
+                    renderEmptyState(query);
+                }
+            } catch (fallbackErr) {
+                console.error("Erro em ambos os servidores:", fallbackErr);
+                statusEl.classList.add('hidden');
+                renderErrorState();
+            }
+        }
+
+        // --- ATUALIZA STATUS DO SERVIDOR NA INTERFACE ---
+        function updateServerStatus(healthy, text) {
+            const dot = document.getElementById('serverDot');
+            const label = document.getElementById('serverText');
+            if (healthy) {
+                dot.className = 'w-2 h-2 rounded-full bg-brand-green';
+                label.textContent = text;
+            } else {
+                dot.className = 'w-2 h-2 rounded-full bg-amber-500 animate-pulse';
+                label.textContent = text;
+            }
+        }
+
+        // --- EFEITOS DE CARREGAMENTO (SKELETONS) ---
+        function renderSkeletonGrid() {
+            const grid = document.getElementById('cardsGrid');
+            grid.innerHTML = '';
+            for (let i = 0; i < 10; i++) {
+                grid.innerHTML += `
+                    <div class="bg-brand-card p-3 rounded-xl flex flex-col gap-2 border border-white/5 animate-pulse-subtle">
+                        <div class="w-full aspect-square bg-neutral-800 rounded-lg"></div>
+                        <div class="h-3 bg-neutral-800 rounded w-3/4 mt-1"></div>
+                        <div class="h-2.5 bg-neutral-800 rounded w-1/2"></div>
+                        <div class="h-6 bg-neutral-800 rounded-full w-full mt-2"></div>
+                    </div>
+                `;
+            }
+        }
+
+        function renderEmptyState(query) {
+            document.getElementById('cardsGrid').innerHTML = `
+                <div class="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                    <svg class="w-12 h-12 text-brand-textMuted mb-3 opacity-50" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                    <p class="text-white text-sm font-semibold">Nenhuma música encontrada</p>
+                    <p class="text-brand-textMuted text-xs mt-1">Tente pesquisar com termos mais genéricos como "${query.split(' ')[0]}".</p>
+                </div>
+            `;
+        }
+
+        function renderErrorState() {
+            document.getElementById('cardsGrid').innerHTML = `
+                <div class="col-span-full flex flex-col items-center justify-center py-12 text-center">
+                    <p class="text-red-400 text-sm font-semibold">Falha na conexão com os servidores de música</p>
+                    <p class="text-brand-textMuted text-xs mt-1 mb-4">Verifique sua conexão com a internet ou tente novamente.</p>
+                    <button onclick="fetchMusic('musicas em alta')" class="bg-brand-card border border-white/20 text-white text-xs px-4 py-2 rounded-full font-bold hover:bg-white/10 transition-colors cursor-pointer">Tentar Novamente</button>
+                </div>
+            `;
+        }
+
+        // --- RENDERIZAÇÃO DOS CARDS DE MÚSICA ---
+        function renderMusicGrid(tracks, source = 'render') {
+            const grid = document.getElementById('cardsGrid');
+            grid.innerHTML = '';
+
+            tracks.forEach(track => {
+                const trackName = track.title || 'Música sem título';
+                const artistName = track.artist || 'Artista Desconhecido';
+                const coverUrl = track.cover || 'https://placehold.co/300x300/181818/1db954?text=off';
+                const trackId = track.id;
+
+                const card = document.createElement('div');
+                card.className = "bg-brand-card hover:bg-brand-cardHover p-3 rounded-xl cursor-pointer group transition-all duration-300 flex flex-col justify-between border border-white/5 shadow-lg relative";
+
+                card.innerHTML = `
+                    <div class="space-y-2">
+                        <div class="relative w-full aspect-square rounded-lg overflow-hidden shadow-md bg-neutral-800">
+                            <img src="${coverUrl}" onerror="this.src='https://placehold.co/300x300/181818/1db954?text=off'" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300" alt="${trackName}">
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <div class="w-10 h-10 bg-brand-green rounded-full flex items-center justify-center shadow-lg text-black hover:scale-110 transition-transform">
+                                    <svg class="w-5 h-5 translate-x-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="truncate mt-1">
+                            <h4 class="font-bold text-xs text-white truncate" title="${trackName}">${trackName}</h4>
+                            <p class="text-[11px] text-brand-textMuted truncate mt-0.5" title="${artistName}">${artistName}</p>
+                        </div>
+                    </div>
+
+                    <button onclick="triggerTrackDownload(event, '${trackId}', '${encodeURIComponent(trackName)}', '${source}', '${track.directAudio || ''}')" 
+                            title="Baixar MP3" 
+                            class="mt-3 w-full bg-brand-subtle hover:bg-brand-green hover:text-black border border-brand-green/30 text-brand-green text-[10px] py-1.5 px-2 rounded-full font-semibold transition-all flex items-center justify-center gap-1.5 group/btn">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+                        <span>Baixar MP3</span>
+                    </button>
+                `;
+
+                card.onclick = (e) => {
+                    if (e.target.closest('button')) return; // Evita disparar player ao clicar em Baixar
+                    loadAndPlayTrack(trackId, trackName, artistName, coverUrl, source, track.directAudio);
+                };
+
+                grid.appendChild(card);
+            });
+        }
+
+        // --- EXTRAÇÃO E PLAYBACK DE MÚSICA ---
+        async function loadAndPlayTrack(id, title, artist, cover, source, directAudio = null) {
+            document.getElementById('playerTitle').textContent = title;
+            document.getElementById('playerArtist').textContent = artist;
+            document.getElementById('playerCover').src = cover;
+            
+            playerLoadingSpinner.classList.remove('hidden');
+            streamTypeBadge.textContent = "Obtendo áudio...";
+            streamTypeBadge.className = "inline-block text-[9px] text-amber-400 font-mono uppercase tracking-wider mt-0.5 animate-pulse";
+
+            activeTrackInfo = { id, title, artist, cover, source, directAudio };
+
+            // Caso 1: Fonte direta (Fallback Jamendo)
+            if (source === 'jamendo' && directAudio) {
+                playStream(directAudio, title, artist, cover, 'Audio CC');
+                enablePlayerDownload(directAudio);
+                return;
+            }
+
+            // Caso 2: Backend Render (Extração de Stream do YouTube)
+            try {
+                const response = await fetch(`${PRIMARY_BACKEND}/api/stream?id=${id}`);
+                const data = await response.json();
+
+                if (data && data.streamUrl) {
+                    playStream(data.streamUrl, title, artist, cover, 'YouTube HD');
+                    enablePlayerDownload(`${PRIMARY_BACKEND}/api/download?id=${id}`);
+                } else {
+                    throw new Error("URL de stream inválida retornada do backend");
+                }
+            } catch (err) {
+                console.warn("Falha ao extrair stream via Render:", err);
+                showToast("Erro ao processar áudio via servidor. Tentando fonte alternativa...", "error");
+                
+                // Tentativa de recuperação via Jamendo pelo mesmo termo
+                fetchBackupTrackAndPlay(title);
+            }
+        }
+
+        async function fetchBackupTrackAndPlay(title) {
+            try {
+                const res = await fetch(`https://api.jamendo.com/v1/tracks/?client_id=${JAMENDO_CLIENT_ID}&format=json&limit=1&namesearch=${encodeURIComponent(title)}&audioformat=mp31`);
+                const data = await res.json();
+                if (data && data.results && data.results[0] && data.results[0].audio) {
+                    const track = data.results[0];
+                    playStream(track.audio, track.name, track.artist_name, track.image, 'Jamendo Stream');
+                    enablePlayerDownload(track.audio);
+                    showToast('Tocando versão alternativa disponível.', 'info');
+                } else {
+                    throw new Error('Nenhum backup encontrado');
+                }
+            } catch (e) {
+                playerLoadingSpinner.classList.add('hidden');
+                streamTypeBadge.textContent = "Erro de reprodução";
+                streamTypeBadge.className = "inline-block text-[9px] text-red-400 font-mono uppercase tracking-wider mt-0.5";
+                showToast("Não foi possível carregar o áudio desta faixa.", "error");
+            }
+        }
+
+        function playStream(url, title, artist, cover, badgeLabel) {
+            playerLoadingSpinner.classList.add('hidden');
+            streamTypeBadge.textContent = badgeLabel;
+            streamTypeBadge.className = "inline-block text-[9px] text-brand-green font-mono uppercase tracking-wider mt-0.5";
+
+            const secureUrl = url.replace(/^http:/, 'https:');
+
+            audio.pause();
+            audio.src = secureUrl;
+            audio.currentTime = 0;
+            audio.load();
+
+            audio.play().then(() => {
+                playIcon.classList.add('hidden');
+                pauseIcon.classList.remove('hidden');
+            }).catch(error => {
+                console.warn("Autoplay impedido pelo navegador:", error);
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            });
+        }
+
+        function enablePlayerDownload(url) {
+            playerDownloadBtn.disabled = false;
+            playerDownloadBtn.classList.remove('hidden', 'opacity-50', 'cursor-not-allowed');
+            playerDownloadBtn.dataset.downloadUrl = url;
+        }
+
+        function downloadCurrentTrack() {
+            const url = playerDownloadBtn.dataset.downloadUrl;
+            if (url) {
+                window.open(url, '_blank');
+                showToast('Iniciando o download do arquivo MP3...', 'success');
+            }
+        }
+
+        // --- TRATAMENTO DE DOWNLOAD POR CARD ---
+        function triggerTrackDownload(event, trackId, rawTitle, source, directAudio) {
+            event.stopPropagation();
+            const title = decodeURIComponent(rawTitle);
+
+            if (source === 'render' || isRenderBackendHealthy) {
+                const downloadUrl = `${PRIMARY_BACKEND}/api/download?id=${trackId}`;
+                window.open(downloadUrl, '_blank');
+                showToast(`Iniciando download de "${title}" via Render...`, 'success');
+            } else if (directAudio) {
+                window.open(directAudio, '_blank');
+                showToast(`Baixando "${title}"...`, 'success');
+            } else {
+                showToast("Serviço de download temporariamente indisponível.", "error");
+            }
+        }
+
+        // --- MÁQUINA DE ESTADO DO PLAYER ---
+        playPauseBtn.onclick = () => {
+            if (!audio.src) return;
+            if (audio.paused) {
+                audio.play().then(() => {
+                    playIcon.classList.add('hidden');
+                    pauseIcon.classList.remove('hidden');
+                }).catch(err => console.error(err));
+            } else {
+                audio.pause();
+                playIcon.classList.remove('hidden');
+                pauseIcon.classList.add('hidden');
+            }
+        };
+
+        audio.ontimeupdate = () => {
+            if (audio.duration && !isNaN(audio.duration)) {
+                progressBar.value = (audio.currentTime / audio.duration) * 100;
+                currentTimeEl.textContent = formatTime(audio.currentTime);
+                totalTimeEl.textContent = formatTime(audio.duration);
+            }
+        };
+
+        audio.onerror = () => {
+            playerLoadingSpinner.classList.add('hidden');
+            streamTypeBadge.textContent = "Erro na Mídia";
+            streamTypeBadge.className = "inline-block text-[9px] text-red-400 font-mono uppercase tracking-wider mt-0.5";
+            showToast("Falha ao carregar o fluxo de áudio.", "error");
+        };
+
+        audio.onended = () => {
+            playIcon.classList.remove('hidden');
+            pauseIcon.classList.add('hidden');
+            progressBar.value = 0;
+            currentTimeEl.textContent = "0:00";
+        };
+
+        progressBar.oninput = (e) => {
+            if (audio.duration && !isNaN(audio.duration)) {
+                audio.currentTime = (e.target.value / 100) * audio.duration;
+            }
+        };
+
+        volumeBar.oninput = (e) => {
+            audio.volume = e.target.value / 100;
+            lastVolume = audio.volume;
+        };
+
+        function toggleMute() {
+            if (audio.volume > 0) {
+                lastVolume = audio.volume;
+                audio.volume = 0;
+                volumeBar.value = 0;
+            } else {
+                audio.volume = lastVolume || 0.8;
+                volumeBar.value = (lastVolume || 0.8) * 100;
+            }
+        }
+
+        function formatTime(seconds) {
+            if (isNaN(seconds)) return "0:00";
+            const mins = Math.floor(seconds / 60);
+            const secs = Math.floor(seconds % 60);
+            return `${mins}:${secs < 10 ? '0' : ''}${secs}`;
+        }
+
+        // --- CONTROLES DA BARRA DE PESQUISA ---
+        function handleInputChange(value) {
+            const clearBtn = document.getElementById('clearSearchBtn');
+            if (value.trim()) clearBtn.classList.remove('hidden');
+            else clearBtn.classList.add('hidden');
+
+            clearTimeout(debounceTimer);
+            if (!value.trim()) return;
+            debounceTimer = setTimeout(() => { fetchMusic(value); }, 650);
+        }
+
+        function handleKeySearch(event) {
+            if (event.key === 'Enter') {
+                clearTimeout(debounceTimer);
+                fetchMusic(event.target.value);
+            }
+        }
+
+        function clearSearch() {
+            const input = document.getElementById('searchInput');
+            input.value = '';
+            document.getElementById('clearSearchBtn').classList.add('hidden');
+            quickSearch('musicas em alta');
+        }
+
+        function quickSearch(term) {
+            const input = document.getElementById('searchInput');
+            input.value = term;
+            document.getElementById('clearSearchBtn').classList.remove('hidden');
+            fetchMusic(term);
+        }
+
+        function focusSearch() {
+            const input = document.getElementById('searchInput');
+            input.focus();
+            input.select();
+        }
+
+        // ATALHOS DE TECLADO
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space' && e.target.tagName !== 'INPUT') {
+                e.preventDefault();
+                playPauseBtn.click();
+            }
+        });
+
+        // --- AUTENTICAÇÃO SUPABASE ---
+        let isSignUp = false;
+        const modal = document.getElementById('authModal');
+        const authButtons = document.getElementById('authButtons');
+        const userProfile = document.getElementById('userProfile');
+
+        document.getElementById('btnOpenLogin').onclick = () => {
+            isSignUp = false;
+            document.getElementById('modalTitle').textContent = "Entrar no off music clube";
+            document.getElementById('authSubmitBtn').textContent = "Entrar";
+            document.getElementById('toggleAuthText').textContent = "Não tem uma conta?";
+            document.getElementById('toggleAuthMode').textContent = "Cadastre-se";
+            modal.classList.remove('hidden');
+        };
+
+        document.getElementById('btnOpenSignup').onclick = () => {
+            isSignUp = true;
+            document.getElementById('modalTitle').textContent = "Criar conta no off music clube";
+            document.getElementById('authSubmitBtn').textContent = "Cadastrar";
+            document.getElementById('toggleAuthText').textContent = "Já possui uma conta?";
+            document.getElementById('toggleAuthMode').textContent = "Entrar";
+            modal.classList.remove('hidden');
+        };
+
+        document.getElementById('closeAuthModal').onclick = () => modal.classList.add('hidden');
+
+        document.getElementById('toggleAuthMode').onclick = () => {
+            isSignUp = !isSignUp;
+            if (isSignUp) {
+                document.getElementById('modalTitle').textContent = "Criar conta no off music clube";
+                document.getElementById('authSubmitBtn').textContent = "Cadastrar";
+                document.getElementById('toggleAuthText').textContent = "Já possui uma conta?";
+                document.getElementById('toggleAuthMode').textContent = "Entrar";
+            } else {
+                document.getElementById('modalTitle').textContent = "Entrar no off music clube";
+                document.getElementById('authSubmitBtn').textContent = "Entrar";
+                document.getElementById('toggleAuthText').textContent = "Não tem uma conta?";
+                document.getElementById('toggleAuthMode').textContent = "Cadastre-se";
+            }
+        };
+
+        document.getElementById('authForm').onsubmit = async (e) => {
+            e.preventDefault();
+            if (!supabaseClient) {
+                showToast("Serviço de autenticação temporariamente indisponível.", "error");
+                return;
+            }
+            const email = document.getElementById('authEmail').value;
+            const password = document.getElementById('authPassword').value;
+
+            if (isSignUp) {
+                const { error } = await supabaseClient.auth.signUp({ email, password });
+                if (error) showToast("Erro ao cadastrar: " + error.message, "error");
+                else { showToast("Conta criada! Faça seu login.", "success"); isSignUp = false; }
+            } else {
+                const { data, error } = await supabaseClient.auth.signInWithPassword({ email, password });
+                if (error) showToast("Erro ao entrar: " + error.message, "error");
+                else {
+                    showToast("Login realizado com sucesso!", "success");
+                    modal.classList.add('hidden');
+                    checkUserSession();
+                }
+            }
+        };
+
+        async function checkUserSession() {
+            if (!supabaseClient) return;
+            const { data: { session } } = await supabaseClient.auth.getSession();
+            if (session) {
+                authButtons.classList.add('hidden');
+                userProfile.classList.remove('hidden');
+                
+                const email = session.user.email;
+                const rawName = email.split('@')[0];
+                const cleanName = rawName.charAt(0).toUpperCase() + rawName.slice(1);
+                document.getElementById('userName').textContent = cleanName;
+                document.getElementById('avatarInitial').textContent = cleanName.charAt(0);
+            } else {
+                authButtons.classList.remove('hidden');
+                userProfile.classList.add('hidden');
+            }
+        }
+
+        document.getElementById('btnLogout').onclick = async () => {
+            if (supabaseClient) {
+                await supabaseClient.auth.signOut();
+                checkUserSession();
+                showToast("Sessão encerrada.", "info");
+            }
+        };
+
+        function loadCustomAvatar(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const img = document.getElementById('avatarImage');
+                    img.src = e.target.result;
+                    img.classList.remove('hidden');
+                    document.getElementById('avatarInitial').classList.add('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // INICIALIZAÇÃO DO APP
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchMusic('musicas em alta');
+            checkUserSession();
+        });
+    </script>
 </body>
 </html>
